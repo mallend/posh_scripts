@@ -1,0 +1,25 @@
+## This will return all users in the specified OU and change their SamAccountName field to the new format
+## As long as their email is accurate
+## Uncomment the first $searchbase to run script against the OU specified
+
+#$searchbase = "/path/to/OU"
+
+$users = Get-ADUser -Filter 'Name -like "*"' -SearchBase $searchbase -Properties * #| Select-Object SamAccountName,UserPrincipalName,EmailAddress
+
+foreach($user in $users){
+$currentsam = $user.SamAccountName
+$upn = $user.UserPrincipalName
+$ptc = $null
+
+if ($user.EmailAddress -match ".opt1@") { $tmp = "OPT1" }
+if ($user.EmailAddress -match ".opt2@") { $tmp = "OPT3" }
+if ($user.EmailAddress -match ".opt3@") { $tmp = "OPT2" }
+
+$tempsam = $upn.Trim("@domain")
+$newsam = $tempsam + "." + $tmp
+
+Get-ADUser -Identity $user.SamAccountName | Set-ADUser -SamAccountName $newsam
+}
+
+## i.e. if user's current SamAccountName is first.m.last, it needs to be changed to ID.tmp,
+## So john.l.smith would be changed to 1234.OPT1 as long as his email correctly identifies him as opt1
