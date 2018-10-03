@@ -1,0 +1,3 @@
+Tabbed GUI that has all the fields needed for new users at my company in one form, allows finding and deleting user objects, and deleting computer objects.
+
+Still working on incorporating New-ADComputer to create a new computer object. ACLs and computer domain join permissions are holding it up.
