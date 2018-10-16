@@ -1,0 +1,153 @@
+## Works to create AD accounts for users using an excel spreadsheet as input
+## Still needs tuning up for logging results and errors
+
+
+
+Try
+{
+    Import-Module ActiveDirectory
+}
+Catch
+{
+    Write-Host "Error importing ActiveDirectory Module. Please try again."
+}
+
+## Static variables
+
+$DATE = Get-Date
+$PATH_DATE = Get-Date -uformat "%Y-%m-%d"
+$PATH = "path\to\OU"
+$ACCOUNT_PASSWORD = (ConvertTo-SecureString -AsPlainText 1qaz2wsx!QAZ@WSX -force)
+$COUNTRY = "US"
+$CITY = "\City\"
+$STATE = "AL"
+$ZIP = "\zip\"
+$COMPANY = "\company\"
+$KERBEROS = "AES256"
+$line = 0
+
+## Functions
+
+Function Start-CreateADUsers
+## Start script
+{
+   Create-Users
+}
+
+
+Function Create-LogDir
+## Create the log directory
+{
+   $logDirectory = "C:\Users\$env:UserName\Desktop\ADUsers\Logs\$PATH_DATE\"
+   
+   if (!(Test-Path $logDirectory)) { New-Item -ItemType Directory -Force -Path $logDirectory }
+}
+
+Function Write-Log
+## Write the message passed in as parameter to a log file (appends to end)
+{
+   param($message, 
+         $logpath = "C:\Users\$env:UserName\Desktop\ADUsers\Logs\$PATH_DATE\$(Get-Date -f yyy-MM-dd)_log.txt")
+   
+   Function TS { Get-Date -Format 'HH:mm:ss' }
+   "[$(TS)]$message" | Tee-Object -FilePath $logpath -Append | Write-Verbose
+}
+
+
+Function Convert-Excel
+## Convert Excel file into a .csv file to import data
+## Accepts a file location as the parameter and returns the .csv location
+{
+param($file)
+$objExcel = New-Object -ComObject Excel.Application
+if ((Test-Path $file) -and ($file -match ".xlsx"))
+    {
+    $path = (Resolve-Path -Path $file).Path
+    $savePath = $path -replace ".xlsx",".csv"
+    If (Test-path $savePath)
+        {
+        Remove-Item -Path $savePath -Force | Out-Null
+        }
+    $objworkbook=$objExcel.Workbooks.Open($file)
+    $objworkbook.SaveAs($savePath,6)
+    $objworkbook.Close($false)
+    }
+    return $savePath
+}
+
+Function Load-Users
+{
+    # Load excel file via dialog prompt
+   [System.Reflection.Assembly]::LoadWithPartialName("System.windows.forms") | Out-Null
+   $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+   $OpenFileDialog.filter = "XLSX (*.xlsx)| *.xlsx"
+   #$OpenFileDialog.filter = "CSV (*.csv)| *.csv"
+   $OpenFileDialog.ShowDialog() | Out-Null
+   $OpenFileDialog.filename
+}
+
+
+Function Create-Users
+## Main function, call this to begin script
+{
+   Create-LogDir
+
+   $file = Load-Users
+   #$file = $file.Trim('"')
+
+   ## Takes the filepath from previous line, calls the Convert-Excel function with path as parameter
+   ## Convert-Excel returns the filepath of the created .csv file used at the input for the Import-CSV function
+
+   Import-CSV -Path (Convert-Excel -file ($file)) | ForEach-Object {
+
+      ## Validate input line and check to see if user already has account
+      $userid = $_.UserPrincipalName
+      $exists = Get-ADUser -Filter { UserPrincipalName -eq $userid }
+      $line = ($line + 1)
+                
+      If ( $exists -eq $null ) {
+        ## If user's email returns no match, create account
+        Try
+        {            
+            If ( [string]::IsNullOrEmpty($_.First) -or [string]::IsNullOrEmpty($_.Last) -or [string]::IsNullOrEmpty($_.EDIPI) -or[string]::IsNullOrEmpty($_.EmailAddress) -or [string]::IsNullOrEmpty($_.Designation) -or [string]::IsNullOrEmpty($_.Office) -or [string]::IsNullOrEmpty($_.Phone) )
+            {
+                #$err = $_ | Select-Object -Property First,Last,EmailAddress
+		        Write-Log "Missing required information for line $line"
+            }
+
+            Else
+            {
+                Try
+                {
+                    New-ADUser -Name $_.Name -GivenName $_.GivenName -Surname $_.Surname -Initials $_.Initials -DisplayName $_.DisplayName `
+                    -Path $PATH -AccountPassword $ACCOUNT_PASSWORD -SamAccountName $_.SamAccountName -UserPrincipalName $_.UserPrincipalName `
+                    -EmailAddress $_.EmailAddress -StreetAddress $_.Bldg -City $CITY -State $STATE -PostalCode $ZIP -Office $_.Office -Department $_.Department `
+                    -Description $_.Department -Title $_.Title -OfficePhone $_.Phone -Company $COMPANY -Enabled $True `
+                    -PasswordNeverExpires $False -KerberosEncryptionType $KERBEROS -PassThru
+                }
+                Catch
+                {
+                    Write-Log "Error creating account line $line"
+                }
+            }
+        } #end try
+      
+        Catch
+        ## If account creation fails for any reason, add to log
+        {
+            Write-Log "There was an error creating account for user on line $line."
+        } #end catch
+      } #end if      
+     
+      Else { Write-Log "There is already an account active on the domain for user on line $line." }
+      
+      $exists = $null
+   } #end foreach
+}
+
+Write-Host "Creating accounts`n"
+#$cred = Get-Credential
+Start-CreateADUsers
+Write-Host "Finished. Check logs for any errors."
+
+Read-Host -Prompt "Press [ENTER] to end"
