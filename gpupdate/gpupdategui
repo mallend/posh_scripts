@@ -1,0 +1,78 @@
+## Creates a simple GUI to add PC names to, when ran will push "gpupdate /force" command and reboot if needed
+
+
+$global:NAMES = @() #Array to hold PC names
+
+Function CreateForm #Sets up GUI
+{
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+
+    $Form = New-Object System.Windows.Forms.Form
+    $Form.Text = "Force GP Update"
+    $Form.Name = "GPUpdate"
+    $Form.DataBindings.DefaultDataSourceUpdateMode = 0
+    $Form.StartPosition = "CenterScreen"
+    $System_Drawing_Size = New-Object System.Drawing.Size
+    $System_Drawing_Size.Width = 450
+    $System_Drawing_Size.Height = 275
+    $Form.ClientSize = $System_Drawing_Size
+
+#Buttons
+    #AddButton
+    $AddButton = New-Object System.Windows.Forms.Button
+    $AddButton.Location = New-Object System.Drawing.Size(345,15)
+    $AddButton.Size = New-Object System.Drawing.Size(65,28)
+    $AddButton.Text = "Add"
+    $Form.Controls.Add($AddButton)
+    $AddButton.Add_Click({AddPC})
+    #UpdateButton
+    $UpdateButton = New-Object System.Windows.Forms.Button
+    $UpdateButton.Location = New-Object System.Drawing.Size(150,225)
+    $UpdateButton.Size = New-Object System.Drawing.Size(65,28)
+    $UpdateButton.Text = "Update"
+    $Form.Controls.Add($UpdateButton)
+    $UpdateButton.Add_Click({UpdateGP})
+    #ExitButton
+    $ExitButton = New-Object System.Windows.Forms.Button
+    $ExitButton.Location = New-Object System.Drawing.Size(230,225)
+    $ExitButton.Size = New-Object System.Drawing.Size(65,28)
+    $ExitButton.Text = "Exit"
+    $Form.Controls.Add($ExitButton)
+    $ExitButton.Add_Click({$Form.Close()})
+#Textboxes and Labels
+    #ComputerName
+    $ComputerNameLabel = New-Object System.Windows.Forms.Label
+    $ComputerNameLabel.Location = New-Object System.Drawing.Size(30, 20)
+    $ComputerNameLabel.Text = "Enter a computer name:"
+    $ComputerNameLabel.Size = New-Object System.Drawing.Size(155,30)
+    $ComputerNameLabel.Font = New-Object System.Drawing.Font("Arial",10,[System.Drawing.FontStyle]::Regular)
+    $Form.Controls.Add($ComputerNameLabel)
+    $ComputerNameTextbox = New-Object System.Windows.Forms.TextBox
+    $ComputerNameTextbox.Location = New-Object System.Drawing.Size(185, 20)
+    $ComputerNameTextbox.Size = New-Object System.Drawing.Size(150,30)
+    $Form.Controls.Add($ComputerNameTextbox)
+    #AddedPCs
+    $ComputersListbox = New-Object System.Windows.Forms.ListBox
+    $ComputersListbox.Location = New-Object System.Drawing.Size(95,60)
+    $ComputersListbox.Height = 150
+    $ComputersListbox.Width = 250
+    $Form.Controls.Add($ComputersListbox)
+
+    $Form.ShowDialog()
+}
+
+Function AddPC #Add the computer name to the listbox and the array
+{
+    $ComputersListbox.Items.Add($ComputerNameTextbox.Text)
+    $global:NAMES += $ComputerNameTextbox.Text
+}
+
+Function UpdateGP #Loop through the array and foreach PC update the GP in the background
+{
+    Foreach($name in $global:NAMES){
+    Invoke-GPUpdate -Computer $name -Force -AsJob -Boot -RandomDelayInMinutes 1
+    }
+}
+
+CreateForm
