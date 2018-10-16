@@ -1,0 +1,46 @@
+## Super simple script that queries AD to find the windows 10 version installed on a given PC name
+
+
+Import-Module ActiveDirectory
+
+Function Get-PCName
+{
+$PC = Read-Host "Enter the computer name to check"
+return $PC
+}
+
+
+Function Get-WinVer
+{
+$PC = Get-PCName
+
+Get-ADComputer -Filter "name -eq '$PC'" -Properties Name,OperatingSystemVersion | Select Name,OperatingSystemVersion | Format-List
+}
+
+Get-WinVer
+
+Read-Host -Prompt "Press [ENTER] to close"
+
+##==========================================================================================##
+
+## Same concept, but instead of querying AD it checks the PC's registry for the version
+
+Function Get-PCName
+{
+$PC = Read-Host "Enter the computer name to check"
+return $PC
+}
+
+Function Get-WinVer
+{
+$PC = Get-PCName
+$cred = Get-Credential 
+
+$session = New-PSSession -Credential $cred -ComputerName $PC ##create PSSession to remote PC
+Invoke-Command -Session $session -ScriptBlock { Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation" -Name Model | Select-Object Model | Format-List } 
+##Invokes command using the created session and pulls Windows Model name from registry
+}
+
+Get-WinVer #starts the script
+
+Read-Host -Prompt "Press [ENTER] to close"
