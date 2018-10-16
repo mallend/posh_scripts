@@ -1,3 +1,8 @@
+## Wrote this to save many hours, most likely days, of work converting 10,000 users' SamAccountName field in AD from an old 
+## naming convention to the new one
+
+
+
 ## This will return all users in the specified OU and change their SamAccountName field to the new format
 ## As long as their email is accurate
 ## Uncomment the first $searchbase to run script against the OU specified
