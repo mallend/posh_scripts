@@ -1,0 +1,32 @@
+# Quick down and dirty little script that asks for a computer name, runs Invoke-command to get whether
+# the machine is UEFI or Legacy boot, and returns which it is set for. Loops until user types no
+
+$answer = "Yes"
+$cred = Get-Credential
+
+do {
+
+    $PCName = Read-Host ("Enter PC name")
+    $check = Invoke-Command -ComputerName $PCName -Credential $cred -ScriptBlock {Get-ComputerInfo | select biosfirmwaretype} | select pscomputername,biosfirmwaretype
+
+    #Write-Output $check | ft -AutoSize
+
+    if ($check.BiosFirmwareType.ToString() -eq "Uefi"){
+        Write-Host "Computer $PCName is set for UEFI boot"
+    }
+    else {
+        Write-Host "Computer $PCName is set for Legacy boot."
+    }
+
+    do {
+
+        $temp = Read-Host ("Check another PC? Y/n")
+
+    } while ( ($temp.ToLower() -ne 'y') -and ($temp.ToLower() -ne 'n') )
+
+    if ( ($temp.ToLower() -eq "n") -or ($temp.ToLower() -eq "no") ) {
+        $answer = "no"
+    }
+
+
+} while ($answer.ToLower() -ne "no")
